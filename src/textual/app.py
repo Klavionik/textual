@@ -27,6 +27,7 @@ from contextlib import (
 from datetime import datetime
 from functools import partial
 from time import perf_counter
+from types import SimpleNamespace
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -41,6 +42,7 @@ from typing import (
     Sequence,
     Type,
     TypeVar,
+    cast,
     overload,
 )
 from weakref import WeakKeyDictionary, WeakSet
@@ -275,8 +277,11 @@ class _PrintCapture:
         return -1
 
 
+CtxType = TypeVar("CtxType")
+
+
 @rich.repr.auto
-class App(Generic[ReturnType], DOMNode):
+class App(Generic[ReturnType, CtxType], DOMNode):
     """The base class for Textual Applications."""
 
     CSS: ClassVar[str] = ""
@@ -400,8 +405,27 @@ class App(Generic[ReturnType], DOMNode):
     ansi_theme_light = Reactive(ALABASTER, init=False)
     """Maps ANSI colors to hex colors using a Rich TerminalTheme object while in light mode."""
 
+    @overload
+    def __init__(
+        self: App[ReturnType, SimpleNamespace],
+        ctx: None = None,
+        driver_class: Type[Driver] | None = None,
+        css_path: CSSPathType | None = None,
+        watch_css: bool = False,
+    ): ...
+
+    @overload
+    def __init__(
+        self: App[ReturnType, CtxType],
+        ctx: CtxType | None = None,
+        driver_class: Type[Driver] | None = None,
+        css_path: CSSPathType | None = None,
+        watch_css: bool = False,
+    ): ...
+
     def __init__(
         self,
+        ctx: CtxType | None = None,
         driver_class: Type[Driver] | None = None,
         css_path: CSSPathType | None = None,
         watch_css: bool = False,
@@ -420,6 +444,7 @@ class App(Generic[ReturnType], DOMNode):
         Raises:
             CssPathError: When the supplied CSS path(s) are an unexpected type.
         """
+        self.ctx = cast(CtxType, ctx or SimpleNamespace())
         self._start_time = perf_counter()
         super().__init__()
         self.features: frozenset[FeatureFlag] = parse_features(os.getenv("TEXTUAL", ""))
